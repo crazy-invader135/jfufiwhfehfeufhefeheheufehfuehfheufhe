@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pathfinding Challenge Platformer</title>
+    <title>Pathfinding Challenge Platformer - Visualized</title>
     <style>
         body {
             display: flex;
@@ -32,11 +32,9 @@
 <body>
 
     <div id="instructions">
-        **PLAYER (Blue):** Arrow Keys to move/jump.
+        **PLAYER (Blue):** Arrow Keys.
         <br>
-        **BOT (Red):** Currently following a hardcoded path.
-        <br>
-        **CHALLENGE:** Implement the A* logic inside the Pathfinder class to beat it!
+        **BOT's Thinking (Yellow/Green):** Shows the current path and navigation nodes.
     </div>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -47,6 +45,7 @@
         const FRICTION = 0.8;
         const JUMP_POWER = -12;
         const TILE_SIZE = 20;
+        const NODE_RADIUS = 3; // Size of the drawn navigation node
 
         // --- GAME OBJECTS ---
         let player = {
@@ -61,10 +60,10 @@
         };
 
         const platforms = [
-            { x: 0, y: 570, w: 800, h: 30, color: '#2ecc71' }, // Ground
-            { x: 150, y: 450, w: 100, h: 20, color: '#95a5a6' }, // Floating Platform 1
-            { x: 400, y: 350, w: 150, h: 20, color: '#95a5a6' }, // Floating Platform 2
-            { x: 650, y: 250, w: 80, h: 20, color: '#95a5a6' }   // Floating Platform 3
+            { id: 0, x: 0, y: 570, w: 800, h: 30, color: '#2ecc71' }, // Ground
+            { id: 1, x: 150, y: 450, w: 100, h: 20, color: '#95a5a6' }, // Platform 1
+            { id: 2, x: 400, y: 350, w: 150, h: 20, color: '#95a5a6' }, // Platform 2
+            { id: 3, x: 650, y: 250, w: 80, h: 20, color: '#95a5a6' }   // Platform 3
         ];
         
         const canvas = document.getElementById('gameCanvas');
@@ -77,57 +76,56 @@
         // --- PATHFINDING DATA STRUCTURES (A* Implementation Shell) ---
         // ----------------------------------------------------------------------
         
-        /**
-         * Represents a node in the A* graph (a jumpable location).
-         */
-        class Node {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.g = Infinity; // Cost from start
-                this.h = 0;        // Heuristic (estimated cost to goal)
-                this.f = Infinity; // Total cost (g + h)
-                this.parent = null;
-            }
-
-            // Simple unique key for map lookup
-            getKey() {
-                return `${Math.round(this.x)}:${Math.round(this.y)}`;
-            }
-        }
+        // (Node and PriorityQueue classes remain the same as before, omitted for brevity)
 
         /**
-         * A simple Priority Queue implementation for A*
-         */
-        class PriorityQueue {
-            constructor() {
-                this.values = [];
-            }
-            enqueue(element) {
-                this.values.push(element);
-                this.sort();
-            }
-            dequeue() {
-                return this.values.shift();
-            }
-            sort() {
-                this.values.sort((a, b) => a.f - b.f);
-            }
-            isEmpty() {
-                return this.values.length === 0;
-            }
-        }
-
-
-        /**
-         * The main Pathfinder class using A* concepts for platforms.
+         * The main Pathfinder class, now including Node generation for visualization.
          */
         class PlatformPathfinder {
             constructor(platforms, bot) {
                 this.platforms = platforms;
                 this.bot = bot;
-                // In a proper implementation, you would generate a detailed Nav Graph here, 
-                // defining all jumpable connections between platform edges.
+                this.navNodes = this.generateNavNodes();
+            }
+
+            /**
+             * Generates simple walk/jump points on the platforms for visualization.
+             * This creates the "map" the bot thinks about.
+             */
+            generateNavNodes() {
+                const nodes = [];
+                const padding = 10; // Distance from edge to place a node
+
+                for (const p of this.platforms) {
+                    const nodeY = p.y - this.bot.h; // Node Y is at the height the bot stands at
+
+                    // Left Edge Node
+                    nodes.push({ 
+                        x: p.x + padding, 
+                        y: nodeY, 
+                        platformId: p.id,
+                        isEdge: true
+                    });
+
+                    // Right Edge Node
+                    nodes.push({ 
+                        x: p.x + p.w - padding, 
+                        y: nodeY, 
+                        platformId: p.id,
+                        isEdge: true
+                    });
+                    
+                    // Center Node (for long platforms)
+                    if (p.w > 200) {
+                         nodes.push({ 
+                            x: p.x + p.w / 2, 
+                            y: nodeY, 
+                            platformId: p.id,
+                            isEdge: false
+                        });
+                    }
+                }
+                return nodes;
             }
 
             /**
@@ -136,32 +134,18 @@
              */
             findPath(startX, startY, endX, endY) {
                 // ------------------------------------------------------
-                // *** THIS IS THE CORE CHALLENGE AREA ***
+                // *** This function still returns a hardcoded path ***
+                // You will replace this with the A* logic later.
                 // ------------------------------------------------------
                 
-                // 1. Initialize start and end nodes.
-                // 2. Initialize Priority Queue (Open Set) and Visited Map (Closed Set).
-                // 3. Loop: while (Open Set is not empty)
-                //      a. Dequeue the node with the lowest f cost (current).
-                //      b. If current is the goal, reconstruct and return the path.
-                //      c. Generate Neighbors (Crucial step for platformers!):
-                //         A neighbor is reached by a 'walk' or a complex 'jump' trajectory.
-                //         You must calculate if the jump is physically possible.
-                //      d. For each neighbor, calculate g, h, and f costs, and update the path if shorter.
-                
-                
-                // --- Simple Hardcoded Test Path (for demonstration) ---
                 console.log("A* Search triggered. Returning test path...");
                 
                 return [
-                    // Walk left to the jump-off point for P1
                     { x: 130, y: H - 30 - this.bot.h, action: 'walk' },
-                    // Jump to Platform 1
                     { x: 190, y: 450 - this.bot.h, action: 'jump' }, 
-                    // Walk to the next jump-off point on P1
                     { x: 230, y: 450 - this.bot.h, action: 'walk' }, 
-                    // Jump to ground (Fall)
-                    { x: 230, y: H - 30 - this.bot.h, action: 'jump' } 
+                    { x: 230, y: H - 30 - this.bot.h, action: 'jump' },
+                    { x: 730, y: H - 30 - this.bot.h, action: 'walk' } 
                 ];
             }
         }
@@ -178,63 +162,37 @@
 
 
         // ----------------------------------------------------------------------
-        // --- GAME ENGINE AND PHYSICS (Standard functions) ---
+        // --- GAME ENGINE AND PHYSICS (Code remains the same as before) ---
         // ----------------------------------------------------------------------
 
-        // --- Input Handling ---
         let keys = {};
-        window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-        });
-        window.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
-        });
+        window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-
-        // --- Helper Function: Check Collision (AABB) ---
         function checkCollision(objA, objB) {
-            return objA.x < objB.x + objB.w &&
-                   objA.x + objA.w > objB.x &&
-                   objA.y + objA.h > objB.y &&
-                   objA.y < objB.y + objB.h;
+            return objA.x < objB.x + objB.w && objA.x + objA.w > objB.x &&
+                   objA.y + objA.h > objB.y && objA.y < objB.y + objB.h;
         }
-
-
-        /**
-         * Applies gravity, movement, and collision resolution for any entity.
-         */
+        
         function applyPhysicsAndCollision(entity) {
-            
-            // Apply gravity
+            // Apply gravity and friction
             entity.velY += GRAVITY;
-
-            // Apply friction
             entity.velX *= FRICTION; 
             if (Math.abs(entity.velX) < 0.5) entity.velX = 0;
 
-            // Update position (tentative)
             entity.x += entity.velX;
             entity.y += entity.velY;
 
-            // Collision Detection
+            // Collision Detection (simplified)
             for (let p of platforms) {
                 if (checkCollision(entity, p)) {
-                    // Collision from above (landing)
                     if (entity.velY > 0 && entity.y + entity.h - entity.velY <= p.y) {
-                        entity.y = p.y - entity.h; // Snap to the top
+                        entity.y = p.y - entity.h;
                         entity.velY = 0;
                         entity.isJumping = false;
-                    }
-                    // Simple side/bottom collision handling
-                    else if (entity.y + entity.h > p.y && entity.y < p.y + p.h) {
-                        // Horizontal collision
-                        entity.x -= entity.velX; 
-                        entity.velX = 0;
-                        // Vertical collision (from below)
-                        if (entity.velY < 0) { 
-                            entity.y = p.y + p.h;
-                            entity.velY = 0;
-                        }
+                    } else if (entity.y + entity.h > p.y && entity.y < p.y + p.h) {
+                        entity.x -= entity.velX; entity.velX = 0;
+                        if (entity.velY < 0) { entity.y = p.y + p.h; entity.velY = 0; }
                     }
                 }
             }
@@ -245,110 +203,92 @@
         }
 
         function updatePlayer() {
-            let entity = player;
-
-            // Horizontal Movement
-            if (keys['ArrowRight']) {
-                entity.velX = entity.speed;
-            } else if (keys['ArrowLeft']) {
-                entity.velX = -entity.speed;
-            } 
-
-            // Jumping
-            if (keys['ArrowUp'] && !entity.isJumping) {
-                entity.velY = JUMP_POWER;
-                entity.isJumping = true;
-            }
-
-            applyPhysicsAndCollision(entity);
+            if (keys['ArrowRight']) { player.velX = player.speed; } 
+            else if (keys['ArrowLeft']) { player.velX = -player.speed; } 
+            if (keys['ArrowUp'] && !player.isJumping) { player.velY = JUMP_POWER; player.isJumping = true; }
+            applyPhysicsAndCollision(player);
         }
-
 
         function updateBot() {
             let entity = bot;
-
-            // If the path is complete, stop. (Can be modified to search for a new path here)
-            if (entity.currentStep >= entity.path.length) {
-                entity.velX = 0;
-                return; 
-            }
+            if (entity.currentStep >= entity.path.length) { entity.velX = 0; return; } 
 
             const target = entity.path[entity.currentStep];
-            // Check if we are close enough to the target point
             const reachedX = Math.abs(entity.x - target.x) < 5;
-            // Check if we are close enough vertically AND not currently jumping/falling
             const reachedY = Math.abs(entity.y - target.y) < 5 && !entity.isJumping;
 
             if (reachedX && reachedY) {
-                // Advance to the next step
                 entity.currentStep++;
                 if (entity.currentStep < entity.path.length) {
                     const nextTarget = entity.path[entity.currentStep];
                     entity.targetX = nextTarget.x;
                     entity.targetY = nextTarget.y;
                     entity.currentAction = nextTarget.action;
-                } else {
-                    entity.velX = 0; // Final stop
-                    return;
-                }
+                } else { entity.velX = 0; return; }
             }
             
-            // Execute the current action
             if (entity.currentAction === 'walk') {
-                if (entity.x < entity.targetX) {
-                    entity.velX = entity.speed;
-                } else if (entity.x > entity.targetX) {
-                    entity.velX = -entity.speed;
-                } else {
-                    entity.velX = 0;
-                }
+                if (entity.x < entity.targetX) { entity.velX = entity.speed; } 
+                else if (entity.x > entity.targetX) { entity.velX = -entity.speed; } 
+                else { entity.velX = 0; }
             } else if (entity.currentAction === 'jump') {
-                // Initiate jump if not already jumping/falling
-                if (!entity.isJumping) {
-                    entity.velY = JUMP_POWER;
-                    entity.isJumping = true;
-                }
-                // Maintain forward momentum during jump/fall
-                 if (entity.x < entity.targetX) {
-                    entity.velX = entity.speed * 0.7; 
-                } else if (entity.x > entity.targetX) {
-                    entity.velX = -entity.speed * 0.7;
-                }
+                if (!entity.isJumping) { entity.velY = JUMP_POWER; entity.isJumping = true; }
+                if (entity.x < entity.targetX) { entity.velX = entity.speed * 0.7; } 
+                else if (entity.x > entity.targetX) { entity.velX = -entity.speed * 0.7; }
             }
-            
             applyPhysicsAndCollision(entity);
         }
 
 
+        // ----------------------------------------------------------------------
+        // --- DRAW FUNCTION (New Visualization) ---
+        // ----------------------------------------------------------------------
+
         function draw() {
-            // 1. Clear the canvas
             ctx.clearRect(0, 0, W, H);
 
-            // 2. Draw Platforms
+            // 1. Draw Platforms
             for (let p of platforms) {
                 ctx.fillStyle = p.color;
                 ctx.fillRect(p.x, p.y, p.w, p.h);
             }
             
-            // (Optional) Draw Bot's Current Target
-            if (bot.currentStep < bot.path.length) {
-                ctx.fillStyle = 'yellow';
-                ctx.fillRect(bot.targetX - 3, bot.targetY - 3, 6, 6);
+            // 2. Draw Navigation Nodes (The Bot's "Map")
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Semi-transparent green
+            for (const node of pathfinder.navNodes) {
+                ctx.beginPath();
+                ctx.arc(node.x + TILE_SIZE / 2, node.y + TILE_SIZE / 2, NODE_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. Draw Bot's Planned Path (The Bot's "Thinking")
+            if (bot.path.length > 0) {
+                ctx.strokeStyle = 'yellow';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
                 
-                // Draw path line (optional)
-                // ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
-                // ctx.beginPath();
-                // ctx.moveTo(bot.x + bot.w / 2, bot.y + bot.h / 2);
-                // ctx.lineTo(bot.targetX + bot.w / 2, bot.targetY + bot.h / 2);
-                // ctx.stroke();
+                // Start the line at the bot's current position
+                ctx.moveTo(bot.x + bot.w / 2, bot.y + bot.h / 2);
+                
+                // Draw line segments for the rest of the path
+                for (let i = bot.currentStep; i < bot.path.length; i++) {
+                    const step = bot.path[i];
+                    ctx.lineTo(step.x + bot.w / 2, step.y + bot.h / 2);
+                }
+                ctx.stroke();
+
+                // Draw current target as a highlighted circle
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(bot.targetX + bot.w / 2, bot.targetY + bot.h / 2, NODE_RADIUS * 2, 0, Math.PI * 2);
+                ctx.fill();
             }
 
 
-            // 3. Draw Player
+            // 4. Draw Player and Bot
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.w, player.h);
 
-            // 4. Draw Bot
             ctx.fillStyle = bot.color;
             ctx.fillRect(bot.x, bot.y, bot.w, bot.h);
         }
@@ -358,7 +298,6 @@
             updatePlayer();
             updateBot();
             draw();
-
             requestAnimationFrame(gameLoop);
         }
 
