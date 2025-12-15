@@ -3,15 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple 3D Platformer Concept</title>
+    <title>2D Direction Switching Player</title>
     <style>
-        /* Basic styling to make the canvas fill the screen */
-        body { margin: 0; overflow: hidden; }
-        canvas { display: block; }
+        body { 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-color: #333; /* Dark background */
+        }
+        canvas {
+            border: 2px solid #fff; /* Visible boundary for the game area */
+            background-color: #87ceeb; /* Sky blue background for the level */
+        }
     </style>
 </head>
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
-    <script src="game.js"></script> 
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+    <script>
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- GAME OBJECTS & CONSTANTS ---
+        const player = {
+            x: 50,              // Initial X position (left side)
+            y: canvas.height - 70, // Y position (on the ground/platform)
+            width: 30,
+            height: 30,
+            color: '#ff4500'    // Orange
+        };
+        
+        // Game physics/movement
+        const moveSpeed = 3;
+        let direction = 1; // 1 for moving right, -1 for moving left
+
+        // Platform Boundaries (The "Walls")
+        // We stop before the player's edge goes off the canvas
+        const minBound = 0; 
+        const maxBound = canvas.width - player.width; 
+
+        // --- DRAWING FUNCTIONS ---
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawPlatform() {
+            // Define a simple ground platform
+            const platformHeight = 20;
+            ctx.fillStyle = '#228b22'; // Forest Green
+            ctx.fillRect(0, canvas.height - platformHeight, canvas.width, platformHeight);
+        }
+
+        function clearCanvas() {
+            // Clear the entire canvas on each frame (or just draw the background)
+            // ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            // We only draw the platform and player in this simple setup
+        }
+
+
+        // --- GAME LOOP / ANIMATION ---
+        function update() {
+            // 1. Clear the screen (optional, if we were drawing moving backgrounds)
+            clearCanvas();
+            
+            // 2. Movement
+            player.x += moveSpeed * direction;
+
+            // 3. Collision Detection (Boundary Check)
+            if (player.x > maxBound) {
+                // Hit the right wall
+                direction = -1; // Switch to moving left
+                player.x = maxBound; // Ensure it doesn't leave the boundary
+            } else if (player.x < minBound) {
+                // Hit the left wall
+                direction = 1;  // Switch to moving right
+                player.x = minBound; // Ensure it doesn't leave the boundary
+            }
+
+            // 4. Drawing
+            drawPlatform();
+            drawPlayer();
+
+            // Request the next frame
+            requestAnimationFrame(update);
+        }
+
+        // --- START GAME ---
+        update();
+
+    </script>
 </body>
 </html>
