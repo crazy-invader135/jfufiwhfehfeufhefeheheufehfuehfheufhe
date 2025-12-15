@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathfinding Challenge Platformer</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+            font-family: sans-serif;
+        }
+        #gameCanvas {
+            border: 2px solid #fff;
+            background-color: #000;
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instructions">
+        Use **Arrow Keys** to move the **Player (Blue)** block.
+        <br>The **Bot (Red)** is currently just standing still.
+        <br>Your challenge is to implement the Bot's pathfinding logic!
+    </div>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        // --- Game Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        // --- Game Objects (Simple Blocks) ---
+        let player = {
+            x: 50,
+            y: H - 50, // Start just above the bottom
+            w: 20,
+            h: 20,
+            color: 'blue',
+            velX: 0,
+            velY: 0,
+            isJumping: false,
+            speed: 5
+        };
+
+        let bot = {
+            x: W - 70,
+            y: H - 50,
+            w: 20,
+            h: 20,
+            color: 'red'
+        };
+
+        // Simple Platform (Ground)
+        const platforms = [
+            { x: 0, y: H - 30, w: W, h: 30, color: 'green' }, // Ground
+            { x: 150, y: H - 100, w: 100, h: 20, color: 'grey' }, // Floating Platform 1
+            { x: 400, y: H - 200, w: 150, h: 20, color: 'grey' }  // Floating Platform 2
+        ];
+
+
+        // --- Input Handling ---
+        let keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+
+        // --- Game Loop Functions ---
+
+        function updatePlayer() {
+            const gravity = 0.5;
+            const friction = 0.8;
+            const jumpPower = -12;
+
+            // Horizontal Movement
+            if (keys['ArrowRight']) {
+                player.velX = player.speed;
+            } else if (keys['ArrowLeft']) {
+                player.velX = -player.speed;
+            } else {
+                player.velX *= friction; // Apply friction
+            }
+            
+            // Limit horizontal speed
+            if (Math.abs(player.velX) < 0.5) player.velX = 0;
+
+
+            // Jumping (only if not already jumping)
+            if (keys['ArrowUp'] && !player.isJumping) {
+                player.velY = jumpPower;
+                player.isJumping = true;
+            }
+
+            // Apply gravity
+            player.velY += gravity;
+
+            // Update position
+            player.x += player.velX;
+            player.y += player.velY;
+
+            
+            // --- Basic Collision Detection with Platforms ---
+            let onPlatform = false;
+            for (let p of platforms) {
+                // Check for collision (AABB)
+                if (player.x < p.x + p.w &&
+                    player.x + player.w > p.x &&
+                    player.y + player.h > p.y &&
+                    player.y < p.y + p.h) {
+                    
+                    // Collision from above (landing)
+                    if (player.velY > 0 && player.y + player.h - player.velY <= p.y) {
+                        player.y = p.y - player.h; // Snap to the top of the platform
+                        player.velY = 0;
+                        player.isJumping = false;
+                        onPlatform = true;
+                    }
+                    // Simple collision resolution for other sides (needs refinement for a real game)
+                    else {
+                         // This is a basic way to stop falling through, needs proper resolution
+                         // For now, only focus on top collision for landing.
+                    }
+                }
+            }
+
+            // Ensure player falls if they step off a platform
+            if (!onPlatform && player.velY === 0 && player.y < H - 50) {
+                 // player.isJumping = true; // Uncomment this to enforce jumping state when falling
+            }
+
+
+            // Wall/Screen Boundary Check
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.w > W) player.x = W - player.w;
+            
+        }
+
+        function updateBot() {
+            // **THIS IS WHERE YOU IMPLEMENT THE PATHFINDING BOT LOGIC**
+            // For a true challenge, you would use an algorithm like A* (A-Star)
+            // to find the optimal path to a target (e.g., a specific point or goal)
+            // while respecting the platform geometry.
+
+            // Currently, the bot does nothing:
+            // bot.x += ...
+            // bot.y += ...
+        }
+
+        function draw() {
+            // 1. Clear the canvas
+            ctx.clearRect(0, 0, W, H);
+
+            // 2. Draw Platforms
+            for (let p of platforms) {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+            }
+
+            // 3. Draw Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // 4. Draw Bot
+            ctx.fillStyle = bot.color;
+            ctx.fillRect(bot.x, bot.y, bot.w, bot.h);
+        }
+
+        // Main game loop
+        function gameLoop() {
+            updatePlayer();
+            updateBot();
+            draw();
+
+            // Request the browser to call gameLoop again, creating an animation
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game!
+        gameLoop();
+
+    </script>
+</body>
+</html>
