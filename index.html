@@ -32,9 +32,9 @@
 <body>
 
     <div id="instructions">
-        **Adaptive Bot:** The bot now detects failures and re-plans its path!
+        **Adaptive Bot:** Now knows its Max Jump limits.
         <br>
-        **Goal:** Move around to test how quickly the bot adapts its yellow path line.
+        **Next:** We need to implement the A* logic to use these limits for dynamic path generation.
     </div>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -43,10 +43,10 @@
         // --- GAME CONSTANTS ---
         const GRAVITY = 0.5;
         const FRICTION = 0.8;
-        const JUMP_POWER = -12;
+        const JUMP_POWER = -12; // Negative Y-velocity is up
         const TILE_SIZE = 20;
         const NODE_RADIUS = 3; 
-        const REPLANNING_THRESHOLD = 60; // How many frames to wait before declaring 'stuck'
+        const REPLANNING_THRESHOLD = 60;
 
         // --- GAME OBJECTS ---
         let player = {
@@ -58,9 +58,8 @@
             x: 730, y: 550, w: TILE_SIZE, h: TILE_SIZE, color: 'red',
             velX: 0, velY: 0, isJumping: false, speed: 4,
             path: [], currentStep: 0, targetX: 730, targetY: 550, currentAction: 'walk',
-            // New variables for learning/re-planning:
-            stuckTimer: 0, // Counts frames bot hasn't moved towards target
-            lastPosition: { x: 730, y: 550 } // Tracks last position for comparison
+            stuckTimer: 0, 
+            lastPosition: { x: 730, y: 550 }
         };
 
         const platforms = [
@@ -77,7 +76,7 @@
 
 
         // ----------------------------------------------------------------------
-        // --- PATHFINDING DATA STRUCTURES and CLASS (A* Shell) ---
+        // --- PATHFINDING DATA STRUCTURES and CLASS ---
         // ----------------------------------------------------------------------
         
         class PlatformPathfinder {
@@ -85,9 +84,24 @@
                 this.platforms = platforms;
                 this.bot = bot;
                 this.navNodes = this.generateNavNodes();
+                
+                // --- CALCULATE BOT'S MAX JUMP ABILITY ---
+                // Max vertical height the bot can reach from jump start (up to apex)
+                // H_max = (V_initial^2) / (2 * G)
+                this.maxJumpHeight = Math.pow(JUMP_POWER, 2) / (2 * GRAVITY);
+                
+                // Max horizontal distance the bot can cover 
+                // Time to reach apex (T_up): T_up = V_initial / G
+                const timeToApex = Math.abs(JUMP_POWER) / GRAVITY;
+                // Total flight time (T_flight): T_flight = 2 * T_up
+                const totalFlightTime = 2 * timeToApex;
+                // D_max = V_horizontal * T_flight (Assuming V_horizontal = bot.speed)
+                this.maxJumpDistance = bot.speed * totalFlightTime;
+
+                console.log(`Bot Max Jump Height: ${this.maxJumpHeight.toFixed(1)}px`);
+                console.log(`Bot Max Jump Distance: ${this.maxJumpDistance.toFixed(1)}px`);
             }
 
-            // Generates simple walk/jump points on the platforms for visualization.
             generateNavNodes() {
                 // ... (Node generation logic remains the same) ...
                 const nodes = [];
@@ -100,28 +114,62 @@
                 }
                 return nodes;
             }
+            
+            /**
+             * Checks if a jump from Node A (x1, y1) to Node B (x2, y2) is possible.
+             */
+            canJump(x1, y1, x2, y2) {
+                const dx = Math.abs(x2 - x1);
+                const dy = y1 - y2; // Positive means jumping up, negative means jumping down
+
+                // Can the bot walk there? (No need to jump)
+                if (Math.abs(dy) < 5 && dx < this.bot.w) {
+                    return true;
+                }
+
+                // Check Horizontal Limit
+                if (dx > this.maxJumpDistance) {
+                    return false; // Too far horizontally
+                }
+
+                // Check Vertical Limit (only need to check UPWARD jumps)
+                if (dy > this.maxJumpHeight + 5) { // Add a buffer of 5px
+                    return false; // Too high vertically
+                }
+                
+                // Check if target is a safe landing spot (within the platforms defined bounds)
+                // (Advanced check involving checking for obstacles in the arc is skipped for simplicity)
+
+                // If it passes simple limits, assume a jump is possible for now.
+                return true;
+            }
+
 
             /**
              * The core A* search function.
-             * This function is now responsible for resetting the bot's path state.
+             * This MUST be replaced with full A* logic to solve the user's problem.
              */
             findPath(startX, startY, endX, endY) {
                 // Reset the bot's movement state before starting a new path:
                 this.bot.currentStep = 0;
                 this.bot.stuckTimer = 0;
                 
-                // --- Simple Hardcoded Test Path (The bot's 'initial' plan) ---
-                console.log(`Bot re-planning from (${Math.round(startX)}, ${Math.round(startY)}) to target.`);
+                // ------------------------------------------------------
+                // *** CHALLENGE: IMPLEMENT A* HERE ***
+                // ------------------------------------------------------
                 
-                // This simulates the bot choosing a new path based on its current position.
-                // In a real A* system, the path would differ based on the startX/Y.
-                return [
+                // For now, we return a test path from the current start point
+                // that uses the new canJump check to decide the action:
+                
+                const testPath = [
                     { x: 130, y: H - 30 - this.bot.h, action: 'walk' },
-                    { x: 190, y: 450 - this.bot.h, action: 'jump' }, 
+                    { x: 190, y: 450 - this.bot.h, action: this.canJump(130, H - 30 - this.bot.h, 190, 450 - this.bot.h) ? 'jump' : 'walk' }, 
                     { x: 230, y: 450 - this.bot.h, action: 'walk' }, 
-                    { x: 230, y: H - 30 - this.bot.h, action: 'jump' },
+                    { x: 230, y: H - 30 - this.bot.h, action: this.canJump(230, 450 - this.bot.h, 230, H - 30 - this.bot.h) ? 'jump' : 'walk' },
                     { x: 730, y: H - 30 - this.bot.h, action: 'walk' } 
                 ];
+                
+                return testPath;
             }
         }
 
@@ -137,8 +185,9 @@
 
 
         // ----------------------------------------------------------------------
-        // --- GAME ENGINE AND PHYSICS (Simplified for brevity) ---
+        // --- GAME ENGINE AND PHYSICS & DRAW (Code remains the same) ---
         // ----------------------------------------------------------------------
+        
         let keys = {};
         window.addEventListener('keydown', (e) => { keys[e.key] = true; });
         window.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -176,19 +225,15 @@
             applyPhysicsAndCollision(player);
         }
 
-        /**
-         * Main Bot Logic: Movement, Failure Detection, and Re-planning
-         */
         function updateBot() {
             let entity = bot;
             
-            // 1. --- FAILURE DETECTION AND RE-PLANNING ---
             const distanceMoved = Math.sqrt(
                 Math.pow(entity.x - entity.lastPosition.x, 2) + 
                 Math.pow(entity.y - entity.lastPosition.y, 2)
             );
 
-            // If the bot is supposed to be moving (has a path) and hasn't moved significantly
+            // Re-planning Logic: If stuck for too long, generate a new path from current location
             if (entity.path.length > 0 && distanceMoved < 0.5) {
                 entity.stuckTimer++;
                 if (entity.stuckTimer > REPLANNING_THRESHOLD) {
@@ -196,25 +241,18 @@
                     // Re-plan from the current stuck location to the player's location
                     entity.path = pathfinder.findPath(entity.x, entity.y, player.x, player.y);
                     if (entity.path.length > 0) {
-                         // Set the new target from the new path
                         entity.targetX = entity.path[0].x;
                         entity.targetY = entity.path[0].y;
                         entity.currentAction = entity.path[0].action;
-                    } else {
-                        // Failed to find a new path
-                        entity.velX = 0;
-                    }
+                    } else { entity.velX = 0; }
                 }
-            } else {
-                entity.stuckTimer = 0;
-            }
+            } else { entity.stuckTimer = 0; }
             
-            // Update last position for the next check
             entity.lastPosition.x = entity.x;
             entity.lastPosition.y = entity.y;
             
             
-            // 2. --- MOVEMENT AND PATH EXECUTION ---
+            // Movement Execution
             if (entity.currentStep >= entity.path.length) { entity.velX = 0; return; } 
 
             const target = entity.path[entity.currentStep];
@@ -244,7 +282,6 @@
             applyPhysicsAndCollision(entity);
         }
 
-        // --- DRAW FUNCTION (Visualization remains the same) ---
         function draw() {
             ctx.clearRect(0, 0, W, H);
             for (let p of platforms) { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.w, p.h); }
