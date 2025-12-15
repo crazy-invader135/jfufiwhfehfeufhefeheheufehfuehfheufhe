@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D Direction Switching Player</title>
+    <title>2D Platformer with Jumping and Gravity</title>
     <style>
         body { 
             margin: 0; 
@@ -14,7 +14,8 @@
             background-color: #333; /* Dark background */
         }
         canvas {
-            border: 2px solid #fff; /* Visible boundary for the game area */
+            /* We remove the border here, as the drawing is now cleaner */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); 
             background-color: #87ceeb; /* Sky blue background for the level */
         }
     </style>
@@ -27,69 +28,111 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- GAME OBJECTS & CONSTANTS ---
+        // --- GAME CONSTANTS ---
+        const platformHeight = 20;
+        const groundY = canvas.height - platformHeight; // The Y-coordinate of the ground surface
+
+        // --- GAME OBJECTS & STATE ---
         const player = {
-            x: 50,              // Initial X position (left side)
-            y: canvas.height - 70, // Y position (on the ground/platform)
+            x: 50,
+            y: groundY - 30, // Start just above the ground
             width: 30,
             height: 30,
-            color: '#ff4500'    // Orange
+            color: '#ff4500', // Orange
+            // Movement/Physics variables
+            vy: 0,          // Vertical velocity (for jumping/gravity)
+            isJumping: false,
+            canJump: true   // Prevents mid-air jumps
         };
         
-        // Game physics/movement
-        const moveSpeed = 3;
-        let direction = 1; // 1 for moving right, -1 for moving left
+        // Physics values
+        const horizontalSpeed = 2.5; // Constant side-to-side movement speed
+        const jumpPower = -15;       // Initial upward velocity for a jump (negative is up in canvas)
+        const gravity = 0.9;         // Downward acceleration
+        
+        let horizontalDirection = 1; // 1 for moving right, -1 for moving left
 
         // Platform Boundaries (The "Walls")
-        // We stop before the player's edge goes off the canvas
         const minBound = 0; 
         const maxBound = canvas.width - player.width; 
 
+        // --- INPUT HANDLING ---
+        document.addEventListener('keydown', (e) => {
+            // Check for SPACEBAR or UP ARROW
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && player.canJump) {
+                // Initiate jump
+                player.vy = jumpPower;
+                player.isJumping = true;
+                player.canJump = false;
+            }
+        });
+
+        // --- GAME LOGIC FUNCTIONS ---
+
+        function applyGravity() {
+            // Apply gravity to vertical velocity
+            player.vy += gravity;
+
+            // Apply vertical velocity to position
+            player.y += player.vy;
+
+            // Check for collision with the ground
+            if (player.y >= groundY - player.height) {
+                player.y = groundY - player.height; // Snap player to the ground
+                player.vy = 0;                      // Stop vertical movement
+                player.isJumping = false;           // Reset jumping flags
+                player.canJump = true;
+            }
+        }
+
+        function handleHorizontalMovement() {
+            // Apply constant horizontal movement
+            player.x += horizontalSpeed * horizontalDirection;
+
+            // Collision Detection (Boundary Check)
+            if (player.x > maxBound) {
+                // Hit the right wall
+                horizontalDirection = -1; // Switch to moving left
+                player.x = maxBound;      // Snap to the boundary
+            } else if (player.x < minBound) {
+                // Hit the left wall
+                horizontalDirection = 1;  // Switch to moving right
+                player.x = minBound;      // Snap to the boundary
+            }
+        }
+
         // --- DRAWING FUNCTIONS ---
+
+        function clearCanvas() {
+            // **FIX for the "permanent red line"**: 
+            // This function clears the entire canvas (and its contents) every frame.
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        }
+
+        function drawPlatform() {
+            ctx.fillStyle = '#228b22'; // Forest Green
+            ctx.fillRect(0, groundY, canvas.width, platformHeight);
+        }
 
         function drawPlayer() {
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.width, player.height);
         }
 
-        function drawPlatform() {
-            // Define a simple ground platform
-            const platformHeight = 20;
-            ctx.fillStyle = '#228b22'; // Forest Green
-            ctx.fillRect(0, canvas.height - platformHeight, canvas.width, platformHeight);
-        }
-
-        function clearCanvas() {
-            // Clear the entire canvas on each frame (or just draw the background)
-            // ctx.clearRect(0, 0, canvas.width, canvas.height); 
-            // We only draw the platform and player in this simple setup
-        }
-
-
         // --- GAME LOOP / ANIMATION ---
         function update() {
-            // 1. Clear the screen (optional, if we were drawing moving backgrounds)
+            // 1. Clear the canvas (Must be the first step to prevent trails)
             clearCanvas();
             
-            // 2. Movement
-            player.x += moveSpeed * direction;
+            // 2. Apply Physics and Movement
+            applyGravity();
+            handleHorizontalMovement();
 
-            // 3. Collision Detection (Boundary Check)
-            if (player.x > maxBound) {
-                // Hit the right wall
-                direction = -1; // Switch to moving left
-                player.x = maxBound; // Ensure it doesn't leave the boundary
-            } else if (player.x < minBound) {
-                // Hit the left wall
-                direction = 1;  // Switch to moving right
-                player.x = minBound; // Ensure it doesn't leave the boundary
-            }
-
-            // 4. Drawing
+            // 3. Drawing
             drawPlatform();
             drawPlayer();
 
-            // Request the next frame
+            // Request the next frame (Smooth animation)
             requestAnimationFrame(update);
         }
 
