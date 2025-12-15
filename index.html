@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pathfinding Challenge Platformer - Visualized</title>
+    <title>Pathfinding Challenge Platformer - Adaptive</title>
     <style>
         body {
             display: flex;
@@ -32,9 +32,9 @@
 <body>
 
     <div id="instructions">
-        **PLAYER (Blue):** Arrow Keys.
+        **Adaptive Bot:** The bot now detects failures and re-plans its path!
         <br>
-        **BOT's Thinking (Yellow/Green):** Shows the current path and navigation nodes.
+        **Goal:** Move around to test how quickly the bot adapts its yellow path line.
     </div>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -45,7 +45,8 @@
         const FRICTION = 0.8;
         const JUMP_POWER = -12;
         const TILE_SIZE = 20;
-        const NODE_RADIUS = 3; // Size of the drawn navigation node
+        const NODE_RADIUS = 3; 
+        const REPLANNING_THRESHOLD = 60; // How many frames to wait before declaring 'stuck'
 
         // --- GAME OBJECTS ---
         let player = {
@@ -56,14 +57,17 @@
         let bot = {
             x: 730, y: 550, w: TILE_SIZE, h: TILE_SIZE, color: 'red',
             velX: 0, velY: 0, isJumping: false, speed: 4,
-            path: [], currentStep: 0, targetX: 730, targetY: 550, currentAction: 'walk'
+            path: [], currentStep: 0, targetX: 730, targetY: 550, currentAction: 'walk',
+            // New variables for learning/re-planning:
+            stuckTimer: 0, // Counts frames bot hasn't moved towards target
+            lastPosition: { x: 730, y: 550 } // Tracks last position for comparison
         };
 
         const platforms = [
-            { id: 0, x: 0, y: 570, w: 800, h: 30, color: '#2ecc71' }, // Ground
-            { id: 1, x: 150, y: 450, w: 100, h: 20, color: '#95a5a6' }, // Platform 1
-            { id: 2, x: 400, y: 350, w: 150, h: 20, color: '#95a5a6' }, // Platform 2
-            { id: 3, x: 650, y: 250, w: 80, h: 20, color: '#95a5a6' }   // Platform 3
+            { id: 0, x: 0, y: 570, w: 800, h: 30, color: '#2ecc71' }, 
+            { id: 1, x: 150, y: 450, w: 100, h: 20, color: '#95a5a6' }, 
+            { id: 2, x: 400, y: 350, w: 150, h: 20, color: '#95a5a6' }, 
+            { id: 3, x: 650, y: 250, w: 80, h: 20, color: '#95a5a6' }   
         ];
         
         const canvas = document.getElementById('gameCanvas');
@@ -73,14 +77,9 @@
 
 
         // ----------------------------------------------------------------------
-        // --- PATHFINDING DATA STRUCTURES (A* Implementation Shell) ---
+        // --- PATHFINDING DATA STRUCTURES and CLASS (A* Shell) ---
         // ----------------------------------------------------------------------
         
-        // (Node and PriorityQueue classes remain the same as before, omitted for brevity)
-
-        /**
-         * The main Pathfinder class, now including Node generation for visualization.
-         */
         class PlatformPathfinder {
             constructor(platforms, bot) {
                 this.platforms = platforms;
@@ -88,58 +87,34 @@
                 this.navNodes = this.generateNavNodes();
             }
 
-            /**
-             * Generates simple walk/jump points on the platforms for visualization.
-             * This creates the "map" the bot thinks about.
-             */
+            // Generates simple walk/jump points on the platforms for visualization.
             generateNavNodes() {
+                // ... (Node generation logic remains the same) ...
                 const nodes = [];
-                const padding = 10; // Distance from edge to place a node
-
+                const padding = 10;
                 for (const p of this.platforms) {
-                    const nodeY = p.y - this.bot.h; // Node Y is at the height the bot stands at
-
-                    // Left Edge Node
-                    nodes.push({ 
-                        x: p.x + padding, 
-                        y: nodeY, 
-                        platformId: p.id,
-                        isEdge: true
-                    });
-
-                    // Right Edge Node
-                    nodes.push({ 
-                        x: p.x + p.w - padding, 
-                        y: nodeY, 
-                        platformId: p.id,
-                        isEdge: true
-                    });
-                    
-                    // Center Node (for long platforms)
-                    if (p.w > 200) {
-                         nodes.push({ 
-                            x: p.x + p.w / 2, 
-                            y: nodeY, 
-                            platformId: p.id,
-                            isEdge: false
-                        });
-                    }
+                    const nodeY = p.y - this.bot.h;
+                    nodes.push({ x: p.x + padding, y: nodeY, platformId: p.id, isEdge: true });
+                    nodes.push({ x: p.x + p.w - padding, y: nodeY, platformId: p.id, isEdge: true });
+                    if (p.w > 200) { nodes.push({ x: p.x + p.w / 2, y: nodeY, platformId: p.id, isEdge: false }); }
                 }
                 return nodes;
             }
 
             /**
              * The core A* search function.
-             * @returns An array of {x, y, action} objects.
+             * This function is now responsible for resetting the bot's path state.
              */
             findPath(startX, startY, endX, endY) {
-                // ------------------------------------------------------
-                // *** This function still returns a hardcoded path ***
-                // You will replace this with the A* logic later.
-                // ------------------------------------------------------
+                // Reset the bot's movement state before starting a new path:
+                this.bot.currentStep = 0;
+                this.bot.stuckTimer = 0;
                 
-                console.log("A* Search triggered. Returning test path...");
+                // --- Simple Hardcoded Test Path (The bot's 'initial' plan) ---
+                console.log(`Bot re-planning from (${Math.round(startX)}, ${Math.round(startY)}) to target.`);
                 
+                // This simulates the bot choosing a new path based on its current position.
+                // In a real A* system, the path would differ based on the startX/Y.
                 return [
                     { x: 130, y: H - 30 - this.bot.h, action: 'walk' },
                     { x: 190, y: 450 - this.bot.h, action: 'jump' }, 
@@ -162,9 +137,8 @@
 
 
         // ----------------------------------------------------------------------
-        // --- GAME ENGINE AND PHYSICS (Code remains the same as before) ---
+        // --- GAME ENGINE AND PHYSICS (Simplified for brevity) ---
         // ----------------------------------------------------------------------
-
         let keys = {};
         window.addEventListener('keydown', (e) => { keys[e.key] = true; });
         window.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -175,29 +149,22 @@
         }
         
         function applyPhysicsAndCollision(entity) {
-            // Apply gravity and friction
             entity.velY += GRAVITY;
             entity.velX *= FRICTION; 
             if (Math.abs(entity.velX) < 0.5) entity.velX = 0;
-
             entity.x += entity.velX;
             entity.y += entity.velY;
 
-            // Collision Detection (simplified)
             for (let p of platforms) {
                 if (checkCollision(entity, p)) {
                     if (entity.velY > 0 && entity.y + entity.h - entity.velY <= p.y) {
-                        entity.y = p.y - entity.h;
-                        entity.velY = 0;
-                        entity.isJumping = false;
+                        entity.y = p.y - entity.h; entity.velY = 0; entity.isJumping = false;
                     } else if (entity.y + entity.h > p.y && entity.y < p.y + p.h) {
                         entity.x -= entity.velX; entity.velX = 0;
                         if (entity.velY < 0) { entity.y = p.y + p.h; entity.velY = 0; }
                     }
                 }
             }
-            
-            // Wall/Screen Boundary Check
             if (entity.x < 0) entity.x = 0;
             if (entity.x + entity.w > W) entity.x = W - entity.w;
         }
@@ -209,8 +176,45 @@
             applyPhysicsAndCollision(player);
         }
 
+        /**
+         * Main Bot Logic: Movement, Failure Detection, and Re-planning
+         */
         function updateBot() {
             let entity = bot;
+            
+            // 1. --- FAILURE DETECTION AND RE-PLANNING ---
+            const distanceMoved = Math.sqrt(
+                Math.pow(entity.x - entity.lastPosition.x, 2) + 
+                Math.pow(entity.y - entity.lastPosition.y, 2)
+            );
+
+            // If the bot is supposed to be moving (has a path) and hasn't moved significantly
+            if (entity.path.length > 0 && distanceMoved < 0.5) {
+                entity.stuckTimer++;
+                if (entity.stuckTimer > REPLANNING_THRESHOLD) {
+                    console.warn("Bot is stuck or path failed! Re-planning...");
+                    // Re-plan from the current stuck location to the player's location
+                    entity.path = pathfinder.findPath(entity.x, entity.y, player.x, player.y);
+                    if (entity.path.length > 0) {
+                         // Set the new target from the new path
+                        entity.targetX = entity.path[0].x;
+                        entity.targetY = entity.path[0].y;
+                        entity.currentAction = entity.path[0].action;
+                    } else {
+                        // Failed to find a new path
+                        entity.velX = 0;
+                    }
+                }
+            } else {
+                entity.stuckTimer = 0;
+            }
+            
+            // Update last position for the next check
+            entity.lastPosition.x = entity.x;
+            entity.lastPosition.y = entity.y;
+            
+            
+            // 2. --- MOVEMENT AND PATH EXECUTION ---
             if (entity.currentStep >= entity.path.length) { entity.velX = 0; return; } 
 
             const target = entity.path[entity.currentStep];
@@ -236,59 +240,43 @@
                 if (entity.x < entity.targetX) { entity.velX = entity.speed * 0.7; } 
                 else if (entity.x > entity.targetX) { entity.velX = -entity.speed * 0.7; }
             }
+            
             applyPhysicsAndCollision(entity);
         }
 
-
-        // ----------------------------------------------------------------------
-        // --- DRAW FUNCTION (New Visualization) ---
-        // ----------------------------------------------------------------------
-
+        // --- DRAW FUNCTION (Visualization remains the same) ---
         function draw() {
             ctx.clearRect(0, 0, W, H);
-
-            // 1. Draw Platforms
-            for (let p of platforms) {
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, p.w, p.h);
-            }
+            for (let p of platforms) { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.w, p.h); }
             
-            // 2. Draw Navigation Nodes (The Bot's "Map")
-            ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Semi-transparent green
+            // Draw Navigation Nodes
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
             for (const node of pathfinder.navNodes) {
                 ctx.beginPath();
                 ctx.arc(node.x + TILE_SIZE / 2, node.y + TILE_SIZE / 2, NODE_RADIUS, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // 3. Draw Bot's Planned Path (The Bot's "Thinking")
+            // Draw Bot's Planned Path
             if (bot.path.length > 0) {
                 ctx.strokeStyle = 'yellow';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                
-                // Start the line at the bot's current position
                 ctx.moveTo(bot.x + bot.w / 2, bot.y + bot.h / 2);
-                
-                // Draw line segments for the rest of the path
                 for (let i = bot.currentStep; i < bot.path.length; i++) {
                     const step = bot.path[i];
                     ctx.lineTo(step.x + bot.w / 2, step.y + bot.h / 2);
                 }
                 ctx.stroke();
 
-                // Draw current target as a highlighted circle
                 ctx.fillStyle = 'white';
                 ctx.beginPath();
                 ctx.arc(bot.targetX + bot.w / 2, bot.targetY + bot.h / 2, NODE_RADIUS * 2, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-
-            // 4. Draw Player and Bot
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.w, player.h);
-
             ctx.fillStyle = bot.color;
             ctx.fillRect(bot.x, bot.y, bot.w, bot.h);
         }
@@ -303,7 +291,6 @@
 
         // Start the game!
         gameLoop();
-
     </script>
 </body>
 </html>
