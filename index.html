@@ -25,54 +25,161 @@
             background-color: rgba(0, 0, 0, 0.7);
             padding: 10px;
             border-radius: 5px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
     <div id="instructions">
-        Use **Arrow Keys** to move the **Player (Blue)** block.
-        <br>The **Bot (Red)** is currently just standing still.
-        <br>Your challenge is to implement the Bot's pathfinding logic!
+        **PLAYER (Blue):** Arrow Keys to move/jump.
+        <br>
+        **BOT (Red):** Currently following a hardcoded path.
+        <br>
+        **CHALLENGE:** Implement the A* logic inside the Pathfinder class to beat it!
     </div>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <script>
-        // --- Game Setup ---
+        // --- GAME CONSTANTS ---
+        const GRAVITY = 0.5;
+        const FRICTION = 0.8;
+        const JUMP_POWER = -12;
+        const TILE_SIZE = 20;
+
+        // --- GAME OBJECTS ---
+        let player = {
+            x: 50, y: 550, w: TILE_SIZE, h: TILE_SIZE, color: 'blue',
+            velX: 0, velY: 0, isJumping: false, speed: 5
+        };
+
+        let bot = {
+            x: 730, y: 550, w: TILE_SIZE, h: TILE_SIZE, color: 'red',
+            velX: 0, velY: 0, isJumping: false, speed: 4,
+            path: [], currentStep: 0, targetX: 730, targetY: 550, currentAction: 'walk'
+        };
+
+        const platforms = [
+            { x: 0, y: 570, w: 800, h: 30, color: '#2ecc71' }, // Ground
+            { x: 150, y: 450, w: 100, h: 20, color: '#95a5a6' }, // Floating Platform 1
+            { x: 400, y: 350, w: 150, h: 20, color: '#95a5a6' }, // Floating Platform 2
+            { x: 650, y: 250, w: 80, h: 20, color: '#95a5a6' }   // Floating Platform 3
+        ];
+        
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const W = canvas.width;
         const H = canvas.height;
 
-        // --- Game Objects (Simple Blocks) ---
-        let player = {
-            x: 50,
-            y: H - 50, // Start just above the bottom
-            w: 20,
-            h: 20,
-            color: 'blue',
-            velX: 0,
-            velY: 0,
-            isJumping: false,
-            speed: 5
-        };
 
-        let bot = {
-            x: W - 70,
-            y: H - 50,
-            w: 20,
-            h: 20,
-            color: 'red'
-        };
+        // ----------------------------------------------------------------------
+        // --- PATHFINDING DATA STRUCTURES (A* Implementation Shell) ---
+        // ----------------------------------------------------------------------
+        
+        /**
+         * Represents a node in the A* graph (a jumpable location).
+         */
+        class Node {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.g = Infinity; // Cost from start
+                this.h = 0;        // Heuristic (estimated cost to goal)
+                this.f = Infinity; // Total cost (g + h)
+                this.parent = null;
+            }
 
-        // Simple Platform (Ground)
-        const platforms = [
-            { x: 0, y: H - 30, w: W, h: 30, color: 'green' }, // Ground
-            { x: 150, y: H - 100, w: 100, h: 20, color: 'grey' }, // Floating Platform 1
-            { x: 400, y: H - 200, w: 150, h: 20, color: 'grey' }  // Floating Platform 2
-        ];
+            // Simple unique key for map lookup
+            getKey() {
+                return `${Math.round(this.x)}:${Math.round(this.y)}`;
+            }
+        }
 
+        /**
+         * A simple Priority Queue implementation for A*
+         */
+        class PriorityQueue {
+            constructor() {
+                this.values = [];
+            }
+            enqueue(element) {
+                this.values.push(element);
+                this.sort();
+            }
+            dequeue() {
+                return this.values.shift();
+            }
+            sort() {
+                this.values.sort((a, b) => a.f - b.f);
+            }
+            isEmpty() {
+                return this.values.length === 0;
+            }
+        }
+
+
+        /**
+         * The main Pathfinder class using A* concepts for platforms.
+         */
+        class PlatformPathfinder {
+            constructor(platforms, bot) {
+                this.platforms = platforms;
+                this.bot = bot;
+                // In a proper implementation, you would generate a detailed Nav Graph here, 
+                // defining all jumpable connections between platform edges.
+            }
+
+            /**
+             * The core A* search function.
+             * @returns An array of {x, y, action} objects.
+             */
+            findPath(startX, startY, endX, endY) {
+                // ------------------------------------------------------
+                // *** THIS IS THE CORE CHALLENGE AREA ***
+                // ------------------------------------------------------
+                
+                // 1. Initialize start and end nodes.
+                // 2. Initialize Priority Queue (Open Set) and Visited Map (Closed Set).
+                // 3. Loop: while (Open Set is not empty)
+                //      a. Dequeue the node with the lowest f cost (current).
+                //      b. If current is the goal, reconstruct and return the path.
+                //      c. Generate Neighbors (Crucial step for platformers!):
+                //         A neighbor is reached by a 'walk' or a complex 'jump' trajectory.
+                //         You must calculate if the jump is physically possible.
+                //      d. For each neighbor, calculate g, h, and f costs, and update the path if shorter.
+                
+                
+                // --- Simple Hardcoded Test Path (for demonstration) ---
+                console.log("A* Search triggered. Returning test path...");
+                
+                return [
+                    // Walk left to the jump-off point for P1
+                    { x: 130, y: H - 30 - this.bot.h, action: 'walk' },
+                    // Jump to Platform 1
+                    { x: 190, y: 450 - this.bot.h, action: 'jump' }, 
+                    // Walk to the next jump-off point on P1
+                    { x: 230, y: 450 - this.bot.h, action: 'walk' }, 
+                    // Jump to ground (Fall)
+                    { x: 230, y: H - 30 - this.bot.h, action: 'jump' } 
+                ];
+            }
+        }
+
+        const pathfinder = new PlatformPathfinder(platforms, bot);
+
+        // --- Initialize Bot Path ---
+        bot.path = pathfinder.findPath(bot.x, bot.y, player.x, player.y);
+        if (bot.path.length > 0) {
+            bot.targetX = bot.path[0].x;
+            bot.targetY = bot.path[0].y;
+            bot.currentAction = bot.path[0].action;
+        }
+
+
+        // ----------------------------------------------------------------------
+        // --- GAME ENGINE AND PHYSICS (Standard functions) ---
+        // ----------------------------------------------------------------------
 
         // --- Input Handling ---
         let keys = {};
@@ -84,86 +191,134 @@
         });
 
 
-        // --- Game Loop Functions ---
+        // --- Helper Function: Check Collision (AABB) ---
+        function checkCollision(objA, objB) {
+            return objA.x < objB.x + objB.w &&
+                   objA.x + objA.w > objB.x &&
+                   objA.y + objA.h > objB.y &&
+                   objA.y < objB.y + objB.h;
+        }
 
-        function updatePlayer() {
-            const gravity = 0.5;
-            const friction = 0.8;
-            const jumpPower = -12;
 
-            // Horizontal Movement
-            if (keys['ArrowRight']) {
-                player.velX = player.speed;
-            } else if (keys['ArrowLeft']) {
-                player.velX = -player.speed;
-            } else {
-                player.velX *= friction; // Apply friction
-            }
+        /**
+         * Applies gravity, movement, and collision resolution for any entity.
+         */
+        function applyPhysicsAndCollision(entity) {
             
-            // Limit horizontal speed
-            if (Math.abs(player.velX) < 0.5) player.velX = 0;
-
-
-            // Jumping (only if not already jumping)
-            if (keys['ArrowUp'] && !player.isJumping) {
-                player.velY = jumpPower;
-                player.isJumping = true;
-            }
-
             // Apply gravity
-            player.velY += gravity;
+            entity.velY += GRAVITY;
 
-            // Update position
-            player.x += player.velX;
-            player.y += player.velY;
+            // Apply friction
+            entity.velX *= FRICTION; 
+            if (Math.abs(entity.velX) < 0.5) entity.velX = 0;
 
-            
-            // --- Basic Collision Detection with Platforms ---
-            let onPlatform = false;
+            // Update position (tentative)
+            entity.x += entity.velX;
+            entity.y += entity.velY;
+
+            // Collision Detection
             for (let p of platforms) {
-                // Check for collision (AABB)
-                if (player.x < p.x + p.w &&
-                    player.x + player.w > p.x &&
-                    player.y + player.h > p.y &&
-                    player.y < p.y + p.h) {
-                    
+                if (checkCollision(entity, p)) {
                     // Collision from above (landing)
-                    if (player.velY > 0 && player.y + player.h - player.velY <= p.y) {
-                        player.y = p.y - player.h; // Snap to the top of the platform
-                        player.velY = 0;
-                        player.isJumping = false;
-                        onPlatform = true;
+                    if (entity.velY > 0 && entity.y + entity.h - entity.velY <= p.y) {
+                        entity.y = p.y - entity.h; // Snap to the top
+                        entity.velY = 0;
+                        entity.isJumping = false;
                     }
-                    // Simple collision resolution for other sides (needs refinement for a real game)
-                    else {
-                         // This is a basic way to stop falling through, needs proper resolution
-                         // For now, only focus on top collision for landing.
+                    // Simple side/bottom collision handling
+                    else if (entity.y + entity.h > p.y && entity.y < p.y + p.h) {
+                        // Horizontal collision
+                        entity.x -= entity.velX; 
+                        entity.velX = 0;
+                        // Vertical collision (from below)
+                        if (entity.velY < 0) { 
+                            entity.y = p.y + p.h;
+                            entity.velY = 0;
+                        }
                     }
                 }
             }
+            
+            // Wall/Screen Boundary Check
+            if (entity.x < 0) entity.x = 0;
+            if (entity.x + entity.w > W) entity.x = W - entity.w;
+        }
 
-            // Ensure player falls if they step off a platform
-            if (!onPlatform && player.velY === 0 && player.y < H - 50) {
-                 // player.isJumping = true; // Uncomment this to enforce jumping state when falling
+        function updatePlayer() {
+            let entity = player;
+
+            // Horizontal Movement
+            if (keys['ArrowRight']) {
+                entity.velX = entity.speed;
+            } else if (keys['ArrowLeft']) {
+                entity.velX = -entity.speed;
+            } 
+
+            // Jumping
+            if (keys['ArrowUp'] && !entity.isJumping) {
+                entity.velY = JUMP_POWER;
+                entity.isJumping = true;
             }
 
-
-            // Wall/Screen Boundary Check
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.w > W) player.x = W - player.w;
-            
+            applyPhysicsAndCollision(entity);
         }
+
 
         function updateBot() {
-            // **THIS IS WHERE YOU IMPLEMENT THE PATHFINDING BOT LOGIC**
-            // For a true challenge, you would use an algorithm like A* (A-Star)
-            // to find the optimal path to a target (e.g., a specific point or goal)
-            // while respecting the platform geometry.
+            let entity = bot;
 
-            // Currently, the bot does nothing:
-            // bot.x += ...
-            // bot.y += ...
+            // If the path is complete, stop. (Can be modified to search for a new path here)
+            if (entity.currentStep >= entity.path.length) {
+                entity.velX = 0;
+                return; 
+            }
+
+            const target = entity.path[entity.currentStep];
+            // Check if we are close enough to the target point
+            const reachedX = Math.abs(entity.x - target.x) < 5;
+            // Check if we are close enough vertically AND not currently jumping/falling
+            const reachedY = Math.abs(entity.y - target.y) < 5 && !entity.isJumping;
+
+            if (reachedX && reachedY) {
+                // Advance to the next step
+                entity.currentStep++;
+                if (entity.currentStep < entity.path.length) {
+                    const nextTarget = entity.path[entity.currentStep];
+                    entity.targetX = nextTarget.x;
+                    entity.targetY = nextTarget.y;
+                    entity.currentAction = nextTarget.action;
+                } else {
+                    entity.velX = 0; // Final stop
+                    return;
+                }
+            }
+            
+            // Execute the current action
+            if (entity.currentAction === 'walk') {
+                if (entity.x < entity.targetX) {
+                    entity.velX = entity.speed;
+                } else if (entity.x > entity.targetX) {
+                    entity.velX = -entity.speed;
+                } else {
+                    entity.velX = 0;
+                }
+            } else if (entity.currentAction === 'jump') {
+                // Initiate jump if not already jumping/falling
+                if (!entity.isJumping) {
+                    entity.velY = JUMP_POWER;
+                    entity.isJumping = true;
+                }
+                // Maintain forward momentum during jump/fall
+                 if (entity.x < entity.targetX) {
+                    entity.velX = entity.speed * 0.7; 
+                } else if (entity.x > entity.targetX) {
+                    entity.velX = -entity.speed * 0.7;
+                }
+            }
+            
+            applyPhysicsAndCollision(entity);
         }
+
 
         function draw() {
             // 1. Clear the canvas
@@ -174,6 +329,20 @@
                 ctx.fillStyle = p.color;
                 ctx.fillRect(p.x, p.y, p.w, p.h);
             }
+            
+            // (Optional) Draw Bot's Current Target
+            if (bot.currentStep < bot.path.length) {
+                ctx.fillStyle = 'yellow';
+                ctx.fillRect(bot.targetX - 3, bot.targetY - 3, 6, 6);
+                
+                // Draw path line (optional)
+                // ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+                // ctx.beginPath();
+                // ctx.moveTo(bot.x + bot.w / 2, bot.y + bot.h / 2);
+                // ctx.lineTo(bot.targetX + bot.w / 2, bot.targetY + bot.h / 2);
+                // ctx.stroke();
+            }
+
 
             // 3. Draw Player
             ctx.fillStyle = player.color;
@@ -190,7 +359,6 @@
             updateBot();
             draw();
 
-            // Request the browser to call gameLoop again, creating an animation
             requestAnimationFrame(gameLoop);
         }
 
