@@ -4,53 +4,57 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// CONFIGURATION: Set your secret and whitelisted user here
 const SECRET_KEY = "MySuperSecret123"; 
-const WHITELISTED_USER = "YourRobloxUsername"; // Change this to your name
-
 let pendingCommand = null;
 
+// The Website Interface
 app.get('/', (req, res) => {
     res.send(`
-        <h1>Whitelisted Admin Panel</h1>
-        <p>Logged in as: <b>${WHITELISTED_USER}</b></p>
-        <button onclick="sendCommand('KillAll')">Kill All Players</button>
-        <button onclick="sendCommand('DayTime')">Set Day Time</button>
+        <h1>Roblox Admin Panel</h1>
+        
+        <label for="targetUser">Target Player Username:</label><br>
+        <input type="text" id="targetUser" placeholder="Username here..." style="margin-bottom: 10px;"><br>
+
+        <button onclick="sendCommand('Kill')">Kill Target</button>
+        <button onclick="sendCommand('Kick')">Kick Target</button>
+        <button onclick="sendCommand('DayTime')">Global: Set Day</button>
 
         <script>
             function sendCommand(cmd) {
+                const username = document.getElementById('targetUser').value;
+                
                 fetch('/send-command', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         cmd: cmd,
                         key: "${SECRET_KEY}",
-                        user: "${WHITELISTED_USER}"
+                        target: username // Sending the name from the text box
                     })
-                }).then(() => alert('Command Sent!'));
+                }).then(response => {
+                    if(response.ok) alert('Command "' + cmd + '" sent for: ' + (username || "Server"));
+                });
             }
         </script>
     `);
 });
 
 app.post('/send-command', (req, res) => {
-    const { cmd, key, user } = req.body;
+    const { cmd, key, target } = req.body;
 
-    // Check if the key and the user match our whitelist
-    if (key === SECRET_KEY && user === WHITELISTED_USER) {
-        pendingCommand = { command: cmd, sender: user };
-        console.log(`Verified command [${cmd}] from ${user}`);
+    if (key === SECRET_KEY) {
+        // We now store the specific target player with the command
+        pendingCommand = { command: cmd, target: target };
+        console.log(`Command [${cmd}] queued for target: ${target}`);
         res.json({ success: true });
     } else {
-        console.warn("Unauthorized attempt to send command!");
-        res.status(403).json({ success: false, error: "Unauthorized" });
+        res.status(403).json({ success: false });
     }
 });
 
 app.get('/get-commands', (req, res) => {
     if (pendingCommand) {
         res.json(pendingCommand);
-        pendingCommand = nil; // Use null in JS; cleared after Roblox picks it up
         pendingCommand = null; 
     } else {
         res.json({ command: "none" });
@@ -58,5 +62,5 @@ app.get('/get-commands', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Secure Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
