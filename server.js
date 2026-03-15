@@ -25,43 +25,40 @@ app.get('/', (req, res) => {
             </style>
         </head>
         <body>
-            <h1>Roblox Remote Panel</h1>
+            <h1>Roblox Command Center</h1>
             
             <div class="section">
                 <h3>Target Selection</h3>
-                <input type="text" id="targetUser" placeholder="Username (Leave empty for Global/Self)">
+                <input type="text" id="targetUser" placeholder="Username (Leave blank for Server)">
             </div>
 
             <div class="section">
                 <h3>Whitelist & Watermark</h3>
-                <button class="btn-green" onclick="joinWhitelist()">Whitelist Target</button>
+                <button class="btn-green" onclick="joinWhitelist()">Add to Whitelist</button>
                 <button onclick="sendCommand('LoadWatermark')">Force Watermark</button>
             </div>
 
             <div class="section">
-                <h3>Basic Admin</h3>
+                <h3>Standard Admin</h3>
                 <button class="btn-red" onclick="sendCommand('Kill')">Kill</button>
                 <button class="btn-red" onclick="sendCommand('Kick')">Kick</button>
-                <button onclick="sendCommand('Freeze')">Freeze</button>
-                <button onclick="sendCommand('Thaw')">Unfreeze</button>
             </div>
 
             <div class="section">
-                <h3>Script Executor</h3>
-                <textarea id="luaCode" placeholder="print('Hello World')"></textarea><br>
-                <button class="btn-green" onclick="sendLua()">Execute Lua</button>
+                <h3>Remote Executor</h3>
+                <textarea id="luaCode" placeholder="print('Executed from Web')"></textarea><br>
+                <button class="btn-green" onclick="sendLua()">Execute Lua Code</button>
             </div>
 
             <script>
                 async function joinWhitelist() {
-                    const user = document.getElementById('targetUser').value;
-                    if(!user) return alert("Type a username first!");
+                    const user = document.getElementById('selfName').value;
                     await fetch('/add-whitelist', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ user })
                     });
-                    alert("Added to Whitelist: " + user);
+                    alert("Whitelisted!");
                 }
 
                 async function sendCommand(cmd) {
@@ -80,7 +77,7 @@ app.get('/', (req, res) => {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ 
-                            cmd: 'CustomScript', 
+                            cmd: 'EXECUTE_LUA', 
                             key: "${SECRET_KEY}", 
                             lua: code,
                             target: target 
@@ -102,7 +99,7 @@ app.post('/add-whitelist', (req, res) => {
 app.post('/send-command', (req, res) => {
     const { cmd, key, target, lua } = req.body;
     if (key === SECRET_KEY) {
-        pendingCommand = { command: cmd, target, lua };
+        pendingCommand = { cmd, target, lua };
         res.json({ success: true });
     } else {
         res.status(403).send("Forbidden");
@@ -111,10 +108,10 @@ app.post('/send-command', (req, res) => {
 
 app.get('/get-commands', (req, res) => {
     res.json({
-        commandData: pendingCommand || { command: "none" },
+        data: pendingCommand || { cmd: "none" },
         whitelist: whitelistedUsers
     });
     pendingCommand = null; 
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log("Panel Live"));
+app.listen(PORT, '0.0.0.0', () => console.log("Panel Running"));
