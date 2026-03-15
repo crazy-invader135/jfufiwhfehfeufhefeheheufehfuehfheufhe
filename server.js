@@ -5,8 +5,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // --- CONFIGURATION ---
-const SECRET_KEY = "MySuperSecret123"; 
-const ADMIN_USERNAME = "YourUsernameHere"; // <--- PUT YOUR USERNAME HERE
+const SECRET_KEY = "Pass1234"; 
+const ADMIN_USERNAME = "crazy_invader135"; // <--- PUT YOUR USERNAME HERE
 let pendingCommand = null;
 
 app.get('/', (req, res) => {
