@@ -1,0 +1,12 @@
+{
+  "name": "roblox-to-web",
+  "version": "1.0.0",
+  "description": "A backend for my Roblox game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
